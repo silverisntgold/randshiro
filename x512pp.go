@@ -9,22 +9,18 @@ type x512pp [8]uint64
 // Original C implementation: https://prng.di.unimi.it/xoshiro512plusplus.c
 func New512pp() *Gen {
 	var temp x512pp
-	seed(temp[:])
+	seed(temp[:], 0 /* seed */, false /* seed used? */)
 	return &Gen{&temp}
 }
 
 //go:noinline
 func (state *x512pp) set(n uint64) {
-	for i := range state {
-		n += entropy
-		state[i] = n
-	}
+	seed(state[:], n /* seed */, true /* seed used? */)
 }
 
 //go:noinline
 func (state *x512pp) next() uint64 {
 	var result = bits.RotateLeft64(state[0]+state[2], 17) + state[2]
-
 	var t = state[1] << 11
 
 	state[2] ^= state[0]
@@ -37,7 +33,6 @@ func (state *x512pp) next() uint64 {
 	state[6] ^= state[7]
 
 	state[6] ^= t
-
 	state[7] = bits.RotateLeft64(state[7], 21)
 
 	return result

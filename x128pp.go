@@ -9,16 +9,13 @@ type x128pp [2]uint64
 // Original C implementation: https://prng.di.unimi.it/xoroshiro128plusplus.c
 func New128pp() *Gen {
 	var temp x128pp
-	seed(temp[:])
+	seed(temp[:], 0 /* seed */, false /* seed used? */)
 	return &Gen{&temp}
 }
 
 //go:noinline
 func (state *x128pp) set(n uint64) {
-	for i := range state {
-		n += entropy
-		state[i] = n
-	}
+	seed(state[:], n /* seed */, true /* seed used? */)
 }
 
 //go:noinline

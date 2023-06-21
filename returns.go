@@ -6,8 +6,7 @@ import (
 	"reflect"
 )
 
-// Returns an unmodified uint64 directly from the
-// backing generator instance
+// Returns a uint64 in the interval [0, 2^64)
 func (rng *Gen) Uint64() uint64 {
 	return rng.next()
 }
@@ -16,18 +15,19 @@ func (rng *Gen) Uint64() uint64 {
 //
 // Makes no range checks on bitcount
 func (rng *Gen) Uint64bits(bitcount int) uint64 {
-	return rng.Uint64() >> (64 - bitcount)
+	const bitsInUint64 = 64
+	return rng.next() >> (bitsInUint64 - bitcount)
 }
 
 // Returns a uint64 in the interval [0, bound)
 //
 // Makes no range checks on bound
 func (rng *Gen) Uint64n(bound uint64) uint64 {
-	var high, low = bits.Mul64(rng.Uint64(), bound)
+	var high, low = bits.Mul64(rng.next(), bound)
 	if low < bound {
 		var threshold = -bound % bound
 		for low < threshold {
-			high, low = bits.Mul64(rng.Uint64(), bound)
+			high, low = bits.Mul64(rng.next(), bound)
 		}
 	}
 	return high
@@ -57,73 +57,82 @@ func (rng *Gen) Bool() bool {
 // Returns a uniformly distributed float64 in the interval [0.0, 1.0)
 //
 // Don't cast the float64s produced by this function to float32:
-// use Float32() instead
+// use Float32() or FastFloat32() instead
 func (rng *Gen) Float64() float64 {
-	return float64(rng.Uint64bits(53)) / 0x1p53
+	return float64(rng.Uint64bits(bitsForFloat64)) / float64Denom
 }
 
 // Returns a uniformly distributed float32 in the interval [0.0, 1.0)
+//
+// Don't cast the float32s produced by this function to float64:
+// use Float64() instead
 func (rng *Gen) Float32() float32 {
-	return float32(rng.Uint64bits(24)) / 0x1p24
+	return float32(rng.Uint64bits(bitsForFloat32)) / float32Denom
 }
 
-// Returns two uniformly distributed float64s in the interval (-1.0, 1.0)
+// Returns two independent and uniformly distributed float32s in the interval [0.0, 1.0)
 //
-// Normally float64s are made by shifting the uppermost 53 bits down,
-// casting to a float64, and dividing by 0x1p53. Instead, we extract the
-// uppermost bit to use as a sign bit, then use the next 53 bits
-// to make the floating point. Then bitwise-or that sign bit
-// with the bit representation of the generated float.
-// The problem with this method is that you then generate
-// both 0 and -0, so 0 occurs twice as frequently as other numbers.
-// So we just reroll whenever we would get a -0 float.
-// This only adds ~1 ns to average execution time and the probability of
-// actually rerolling is only (1 / 2^54).
-func (rng *Gen) forNormal() (float64, float64) {
-	const mask = 1 << 63
-	const shift = 64 - 53
-
-loop1:
-	var x = rng.Uint64()
-	var signbit = x & mask
-	x <<= 1
-	x >>= shift
-	if x == 0 && signbit == mask {
-		goto loop1
-	}
-	var float1 = float64(x) / 0x1p53
-	float1 = math.Float64frombits(signbit | math.Float64bits(float1))
-
-loop2:
-	x = rng.Uint64()
-	signbit = x & mask
-	x <<= 1
-	x >>= shift
-	if x == 0 && signbit == mask {
-		goto loop2
-	}
-	var float2 = float64(x) / 0x1p53
-	float2 = math.Float64frombits(signbit | math.Float64bits(float2))
-
+// Don't cast the float32s produced by this function to float64:
+// use Float64() instead
+func (rng *Gen) FastFloat32() (float32, float32) {
+	var (
+		random48Bits = rng.Uint64bits(bitsForFloat32 * 2)
+		bottom24Bits = random48Bits & (1<<bitsForFloat32 - 1)
+		upper24Bits  = random48Bits >> bitsForFloat32
+		float1       = float32(bottom24Bits) / float32Denom
+		float2       = float32(upper24Bits) / float32Denom
+	)
 	return float1, float2
 }
 
-// Returns two normally distributed float64s
+// Returns two independent and normally distributed float64s
 // with mean = 0.0 and stddev = 1.0
 //
 // Use NormalDist() if you need to adjust mean/stddev
 func (rng *Gen) Normal() (float64, float64) {
-loop:
-	var u, v = rng.forNormal()
+	const bitCount = bitsForFloat64 + 1
+	const shiftValues = 1 << bitsForFloat64
+
+	// It's a bit of a mess to have this all manually inlined,
+	// but doing so saves ~2ns of runtime
+outer_loop:
+
+	// For generating a float64 in the interval (-1.0, 1.0), we roll
+	// a random number in the interval [0, 2^54), discard rolls of zero,
+	// and subtract 2^53 (we cast to int64 because we need negatives).
+	// This gives us an integer in the interval (-2^53, 2^53),
+	// which then maps to a float64 in the interval (-1.0, 1.0) when we
+	// do our casting and division magic.
+inner_loop_1:
+	var temp = int64(rng.Uint64bits(bitCount))
+	if temp == 0 {
+		goto inner_loop_1
+	}
+	temp -= shiftValues
+	var u = float64(temp) / float64Denom
+
+inner_loop_2:
+	temp = int64(rng.Uint64bits(bitCount))
+	if temp == 0 {
+		goto inner_loop_2
+	}
+	temp -= shiftValues
+	var v = float64(temp) / float64Denom
+
 	var s = u*u + v*v
+	// We need whatever goes into math.Sqrt() to be positive and non-zero,
+	// and since we already have a -2 we need another negative.
+	// The s variable itself can't be negative (sum of squares), so the
+	// result of math.Log() must be negative.
+	// Both of these conditions can only be met when s is between 0 and 1.
 	if s >= 1 || s == 0 {
-		goto loop
+		goto outer_loop
 	}
 	s = math.Sqrt(-2 * math.Log(s) / s)
 	return u * s, v * s
 }
 
-// Returns two normally distributed float64s
+// Returns two independent and normally distributed float64s
 // with user-defined mean and stddev
 //
 // Makes no range checks on mean/stddev
@@ -132,14 +141,13 @@ func (rng *Gen) NormalDist(mean, stddev float64) (float64, float64) {
 	return x*stddev + mean, y*stddev + mean
 }
 
-// Returns an exponentially distributed float64
-// in the interval [0.0, +math.MaxFloat64]
+// Returns an exponentially distributed float64 with
+// a rate constant (lambda) of 1
 //
-// The rate constant (lambda) is 1,
-// and can be adjusted with: Exponential() / lambda
+// Lambda can be adjusted with: Exponential() / lambda
 func (rng *Gen) Exponential() float64 {
 	// Uniformly distributed float64 in the interval (0.0, 1.0]
-	var float = float64(rng.Uint64bits(53)+1) / 0x1p53
+	var float = float64(rng.Uint64bits(bitsForFloat64)+1) / float64Denom
 	return -math.Log(float)
 }
 

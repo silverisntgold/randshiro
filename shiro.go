@@ -7,19 +7,24 @@ import (
 	"unsafe"
 )
 
-const entropy = 0x9e3779b97f4a7c15
+const (
+	bitsForFloat64 = 53
+	float64Denom   = 1 << bitsForFloat64
+	bitsForFloat32 = 24
+	float32Denom   = 1 << bitsForFloat32
+)
 
-type nextable interface {
+type randomBitGenerator interface {
 	next() uint64
 	set(uint64)
 }
 
-// Methods belonging to Gen do no verification of the variables passed into them;
-// passing negative numbers or calling methods with nil *Gen instances is undefined behavior
+// Instances are not threadsafe
 //
-// INSTANCES ARE NOT THREADSAFE
+// It is recommended that each goroutine needing a source of random numbers
+// should create and own a unique Gen instance
 type Gen struct {
-	nextable
+	randomBitGenerator
 }
 
 // Creates and seeds a *Gen with backing Xoshiro256++ instance
@@ -29,50 +34,45 @@ func New() *Gen {
 	return New256pp()
 }
 
-// Manually seeds *Gen
+// Manually seeds the backing generator of the calling Gen instance
 //
-// Restoring the unpredictability of the instance must be done
-// by reinitializing with one of the factory functions
-// (doesn't have to be the same as was originally used)
-//
-// Unless you know for absolute certain that you need to
-// use this, you don't
+// Unless you know for certain that you need to
+// manually seed a Gen instance, you don't
 func (rng *Gen) ManualSeed(n uint64) {
-	const buildEntropy = 1 << 4
-	for i := 0; i < buildEntropy; i++ {
-		n += entropy
-	}
 	rng.set(n)
-	for i := 0; i < buildEntropy; i++ {
-		rng.next()
+}
+
+func seed(state []uint64, n uint64, useCustomSeed bool) {
+	const bytesInUint64 = 8
+	var seed = make([]byte, len(state)*bytesInUint64)
+	if useCustomSeed {
+		fallbackRead(seed, n, useCustomSeed)
+	} else if _, err := rand.Read(seed); err != nil {
+		fallbackRead(seed, n, useCustomSeed)
+	}
+	// Mapping groups of eight bytes from seed to unique indexs of state
+	for i := range state {
+		var startIndex = i * bytesInUint64
+		var endIndex = startIndex + bytesInUint64
+		// LittleEndian was chosen arbitrarily
+		state[i] = binary.LittleEndian.Uint64(seed[startIndex:endIndex])
 	}
 }
 
-func seed(slice []uint64) {
-	// bytes in a uint64
-	const n = 8
-	var seed = make([]byte, len(slice)*n)
-	if _, err := rand.Read(seed); err != nil {
-		fallbackRead(seed)
+func fallbackRead(seed []byte, n uint64, useCustomSeed bool) {
+	var x = n
+	if !useCustomSeed {
+		x = uint64(time.Now().UnixMicro()) ^
+			uint64(uintptr(unsafe.Pointer(&seed[0])))
 	}
-	for i := range slice {
-		var startIndex = i * n
-		var endIndex = startIndex + n
-		slice[i] = binary.BigEndian.Uint64(seed[startIndex:endIndex])
-	}
-}
-
-func fallbackRead(slice []byte) {
-	var x = uint64(time.Now().UnixMicro()) ^
-		uint64(uintptr(unsafe.Pointer(&slice[0])))
 	var z uint64
 	// SplitMix64
 	// https://prng.di.unimi.it/splitmix64.c
-	for i := range slice {
-		x += entropy
+	for i := range seed {
+		x += 0x9e3779b97f4a7c15
 		z = x
 		z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9
 		z = (z ^ (z >> 27)) * 0x94d049bb133111eb
-		slice[i] = byte((z ^ (z >> 31)) >> 56)
+		seed[i] = byte((z ^ (z >> 31)) >> 56)
 	}
 }
