@@ -4,18 +4,18 @@ import "math/bits"
 
 type x256pp [4]uint64
 
-// Creates and seeds a *Gen with backing Xoshiro256++ instance
+// Creates and cryptographically seeds a *Gen with backing Xoshiro256++ instance
 //
 // Original C implementation: https://prng.di.unimi.it/xoshiro256plusplus.c
 func New256pp() *Gen {
-	var temp x256pp
-	seed(temp[:], 0 /* seed */, false /* seed used? */)
-	return &Gen{&temp}
+	var state x256pp
+	seed(state[:])
+	return &Gen{&state}
 }
 
 //go:noinline
-func (state *x256pp) set(n uint64) {
-	seed(state[:], n /* seed */, true /* seed used? */)
+func (state *x256pp) getState() []uint64 {
+	return state[:]
 }
 
 //go:noinline

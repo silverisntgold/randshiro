@@ -59,7 +59,7 @@ func (rng *Gen) Bool() bool {
 // Don't cast the float64s produced by this function to float32:
 // use Float32() or FastFloat32() instead
 func (rng *Gen) Float64() float64 {
-	return float64(rng.Uint64bits(bitsForFloat64)) / float64Denom
+	return float64(rng.Uint64bits(float64Bits)) / float64Denom
 }
 
 // Returns a uniformly distributed float32 in the interval [0.0, 1.0)
@@ -67,7 +67,7 @@ func (rng *Gen) Float64() float64 {
 // Don't cast the float32s produced by this function to float64:
 // use Float64() instead
 func (rng *Gen) Float32() float32 {
-	return float32(rng.Uint64bits(bitsForFloat32)) / float32Denom
+	return float32(rng.Uint64bits(float32Bits)) / float32Denom
 }
 
 // Returns two independent and uniformly distributed float32s in the interval [0.0, 1.0)
@@ -76,9 +76,9 @@ func (rng *Gen) Float32() float32 {
 // use Float64() instead
 func (rng *Gen) FastFloat32() (float32, float32) {
 	var (
-		random48Bits = rng.Uint64bits(bitsForFloat32 * 2)
-		bottom24Bits = random48Bits & (1<<bitsForFloat32 - 1)
-		upper24Bits  = random48Bits >> bitsForFloat32
+		random48Bits = rng.Uint64bits(float32Bits * 2)
+		bottom24Bits = random48Bits & ((1 << float32Bits) - 1)
+		upper24Bits  = random48Bits >> float32Bits
 		float1       = float32(bottom24Bits) / float32Denom
 		float2       = float32(upper24Bits) / float32Denom
 	)
@@ -90,11 +90,11 @@ func (rng *Gen) FastFloat32() (float32, float32) {
 //
 // Use NormalDist() if you need to adjust mean/stddev
 func (rng *Gen) Normal() (float64, float64) {
-	const bitCount = bitsForFloat64 + 1
-	const shiftValues = 1 << bitsForFloat64
+	const bitCount = float64Bits + 1
+	const shiftValues = 1 << float64Bits
 
 	// It's a bit of a mess to have this all manually inlined,
-	// but doing so saves ~2ns of runtime
+	// but doing so saves ~1ns of runtime
 outer_loop:
 
 	// For generating a float64 in the interval (-1.0, 1.0), we roll
@@ -120,16 +120,13 @@ inner_loop_2:
 	var v = float64(temp) / float64Denom
 
 	var s = u*u + v*v
-	// We need whatever goes into math.Sqrt() to be positive and non-zero,
-	// and since we already have a -2 we need another negative.
-	// The s variable itself can't be negative (sum of squares), so the
-	// result of math.Log() must be negative.
-	// Both of these conditions can only be met when s is between 0 and 1.
-	if s >= 1 || s == 0 {
+	if s > 1 || s == 0 {
 		goto outer_loop
 	}
 	s = math.Sqrt(-2 * math.Log(s) / s)
-	return u * s, v * s
+	u *= s
+	v *= s
+	return u, v
 }
 
 // Returns two independent and normally distributed float64s
@@ -147,7 +144,7 @@ func (rng *Gen) NormalDist(mean, stddev float64) (float64, float64) {
 // Lambda can be adjusted with: Exponential() / lambda
 func (rng *Gen) Exponential() float64 {
 	// Uniformly distributed float64 in the interval (0.0, 1.0]
-	var float = float64(rng.Uint64bits(bitsForFloat64)+1) / float64Denom
+	var float = float64(rng.Uint64bits(float64Bits)+1) / float64Denom
 	return -math.Log(float)
 }
 
@@ -155,14 +152,13 @@ func (rng *Gen) Exponential() float64 {
 //
 // Makes no range checks on n
 func (rng *Gen) Perm(n int) []int {
-	var temp = make([]int, n)
-	var j int
-	for i := range temp {
-		j = rng.Intn(i + 1)
-		temp[i] = temp[j]
-		temp[j] = i
+	var slice = make([]int, n)
+	for i := range slice {
+		var j = rng.Intn(i + 1)
+		slice[i] = slice[j]
+		slice[j] = i
 	}
-	return temp
+	return slice
 }
 
 // This method only exists to tell you that the real Shuffle()

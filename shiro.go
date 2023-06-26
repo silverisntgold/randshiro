@@ -8,26 +8,26 @@ import (
 )
 
 const (
-	bitsForFloat64 = 53
-	float64Denom   = 1 << bitsForFloat64
-	bitsForFloat32 = 24
-	float32Denom   = 1 << bitsForFloat32
+	float64Bits  = 53
+	float64Denom = 1 << float64Bits
+	float32Bits  = 24
+	float32Denom = 1 << float32Bits
 )
 
 type randomBitGenerator interface {
+	getState() []uint64
 	next() uint64
-	set(uint64)
 }
 
 // Instances are not threadsafe
 //
-// It is recommended that each goroutine needing a source of random numbers
+// It is recommended that each goroutine needing a source of random values
 // should create and own a unique Gen instance
 type Gen struct {
 	randomBitGenerator
 }
 
-// Creates and seeds a *Gen with backing Xoshiro256++ instance
+// Creates and cryptographically seeds a *Gen with backing Xoshiro256++ instance
 //
 // Equivalent in all ways to directly calling New256pp()
 func New() *Gen {
@@ -36,43 +36,39 @@ func New() *Gen {
 
 // Manually seeds the backing generator of the calling Gen instance
 //
-// Unless you know for certain that you need to
+// Unless you are absolutely certain that you need to
 // manually seed a Gen instance, you don't
-func (rng *Gen) ManualSeed(n uint64) {
-	rng.set(n)
+func (rng *Gen) ManualSeed(seed uint64) {
+	alternateSeed(rng.getState(), seed)
 }
 
-func seed(state []uint64, n uint64, useCustomSeed bool) {
+func seed(state []uint64) {
 	const bytesInUint64 = 8
-	var seed = make([]byte, len(state)*bytesInUint64)
-	if useCustomSeed {
-		fallbackRead(seed, n, useCustomSeed)
-	} else if _, err := rand.Read(seed); err != nil {
-		fallbackRead(seed, n, useCustomSeed)
-	}
-	// Mapping groups of eight bytes from seed to unique indexs of state
-	for i := range state {
-		var startIndex = i * bytesInUint64
-		var endIndex = startIndex + bytesInUint64
-		// LittleEndian was chosen arbitrarily
-		state[i] = binary.LittleEndian.Uint64(seed[startIndex:endIndex])
+	var randArray = make([]byte, len(state)*bytesInUint64)
+	if _, err := rand.Read(randArray); err == nil {
+		// Mapping sequences of eight bytes from randArray to unique indexs of state
+		for i := range state {
+			var start = i * bytesInUint64
+			var end = start + bytesInUint64
+			// LittleEndian was chosen arbitrarily
+			state[i] = binary.LittleEndian.Uint64(randArray[start:end])
+		}
+	} else {
+		var randSeed = uint64(time.Now().UnixMicro()) ^
+			uint64(uintptr(unsafe.Pointer(&randArray[0])))
+		alternateSeed(state, randSeed)
 	}
 }
 
-func fallbackRead(seed []byte, n uint64, useCustomSeed bool) {
-	var x = n
-	if !useCustomSeed {
-		x = uint64(time.Now().UnixMicro()) ^
-			uint64(uintptr(unsafe.Pointer(&seed[0])))
-	}
-	var z uint64
-	// SplitMix64
-	// https://prng.di.unimi.it/splitmix64.c
-	for i := range seed {
+// SplitMix64
+//
+// https://prng.di.unimi.it/splitmix64.c
+func alternateSeed(state []uint64, x uint64) {
+	for i := range state {
 		x += 0x9e3779b97f4a7c15
-		z = x
+		var z = x
 		z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9
 		z = (z ^ (z >> 27)) * 0x94d049bb133111eb
-		seed[i] = byte((z ^ (z >> 31)) >> 56)
+		state[i] = z ^ (z >> 31)
 	}
 }

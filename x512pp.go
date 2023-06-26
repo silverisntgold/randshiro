@@ -4,18 +4,18 @@ import "math/bits"
 
 type x512pp [8]uint64
 
-// Creates and seeds a *Gen with backing Xoshiro512++ instance
+// Creates and cryptographically seeds a *Gen with backing Xoshiro512++ instance
 //
 // Original C implementation: https://prng.di.unimi.it/xoshiro512plusplus.c
 func New512pp() *Gen {
-	var temp x512pp
-	seed(temp[:], 0 /* seed */, false /* seed used? */)
-	return &Gen{&temp}
+	var state x512pp
+	seed(state[:])
+	return &Gen{&state}
 }
 
 //go:noinline
-func (state *x512pp) set(n uint64) {
-	seed(state[:], n /* seed */, true /* seed used? */)
+func (state *x512pp) getState() []uint64 {
+	return state[:]
 }
 
 //go:noinline

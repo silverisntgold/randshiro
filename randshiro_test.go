@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-const bound = 1<<16 - 1
+const bound = 1_000_000
 
 func BenchmarkMathRandNew(b *testing.B) {
 	for i := 0; i < b.N; i++ {
@@ -109,22 +109,6 @@ func Benchmark512ppFastFloat32(b *testing.B) {
 	}
 }
 
-func Benchmark512ppNormal(b *testing.B) {
-	var rng = New512pp()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		rng.Normal()
-	}
-}
-
-func Benchmark512ppExponential(b *testing.B) {
-	var rng = New512pp()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		rng.Exponential()
-	}
-}
-
 func Benchmark256ppNew(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		New256pp()
@@ -168,22 +152,6 @@ func Benchmark256ppFastFloat32(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		rng.FastFloat32()
-	}
-}
-
-func Benchmark256ppNormal(b *testing.B) {
-	var rng = New256pp()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		rng.Normal()
-	}
-}
-
-func Benchmark256ppExponential(b *testing.B) {
-	var rng = New256pp()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		rng.Exponential()
 	}
 }
 
@@ -233,16 +201,16 @@ func Benchmark128ppFastFloat32(b *testing.B) {
 	}
 }
 
-func Benchmark128ppNormal(b *testing.B) {
-	var rng = New128pp()
+func BenchmarkNormal(b *testing.B) {
+	var rng = New()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		rng.Normal()
 	}
 }
 
-func Benchmark128ppExponential(b *testing.B) {
-	var rng = New128pp()
+func BenchmarkExponential(b *testing.B) {
+	var rng = New()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		rng.Exponential()

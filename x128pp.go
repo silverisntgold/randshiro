@@ -4,18 +4,18 @@ import "math/bits"
 
 type x128pp [2]uint64
 
-// Creates and seeds a *Gen with backing Xoroshiro128++ instance
+// Creates and cryptographically seeds a *Gen with backing Xoroshiro128++ instance
 //
 // Original C implementation: https://prng.di.unimi.it/xoroshiro128plusplus.c
 func New128pp() *Gen {
-	var temp x128pp
-	seed(temp[:], 0 /* seed */, false /* seed used? */)
-	return &Gen{&temp}
+	var state x128pp
+	seed(state[:])
+	return &Gen{&state}
 }
 
 //go:noinline
-func (state *x128pp) set(n uint64) {
-	seed(state[:], n /* seed */, true /* seed used? */)
+func (state *x128pp) getState() []uint64 {
+	return state[:]
 }
 
 //go:noinline
