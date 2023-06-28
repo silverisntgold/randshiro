@@ -44,18 +44,18 @@ func (rng *Gen) ManualSeed(seed uint64) {
 
 func seed(state []uint64) {
 	const bytesInUint64 = 8
-	var randArray = make([]byte, len(state)*bytesInUint64)
-	if _, err := rand.Read(randArray); err == nil {
-		// Mapping sequences of eight bytes from randArray to unique indexs of state
+	var randBytes = make([]byte, len(state)*bytesInUint64)
+	if _, err := rand.Read(randBytes); err == nil {
+		// Mapping sequences of eight bytes from randBytes to unique indexs of state
 		for i := range state {
 			var start = i * bytesInUint64
 			var end = start + bytesInUint64
 			// LittleEndian was chosen arbitrarily
-			state[i] = binary.LittleEndian.Uint64(randArray[start:end])
+			state[i] = binary.LittleEndian.Uint64(randBytes[start:end])
 		}
 	} else {
 		var randSeed = uint64(time.Now().UnixMicro()) ^
-			uint64(uintptr(unsafe.Pointer(&randArray[0])))
+			uint64(uintptr(unsafe.Pointer(&randBytes[0])))
 		alternateSeed(state, randSeed)
 	}
 }

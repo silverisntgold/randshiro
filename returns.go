@@ -77,7 +77,7 @@ func (rng *Gen) Float32() float32 {
 func (rng *Gen) FastFloat32() (float32, float32) {
 	var (
 		random48Bits = rng.Uint64bits(float32Bits * 2)
-		bottom24Bits = random48Bits & ((1 << float32Bits) - 1)
+		bottom24Bits = random48Bits & (1<<float32Bits - 1)
 		upper24Bits  = random48Bits >> float32Bits
 		float1       = float32(bottom24Bits) / float32Denom
 		float2       = float32(upper24Bits) / float32Denom
