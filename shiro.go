@@ -29,7 +29,7 @@ type Gen struct {
 
 // Creates and cryptographically seeds a *Gen with backing Xoshiro256++ instance
 //
-// Equivalent in all ways to directly calling New256pp()
+// Equivalent to calling New256pp()
 func New() *Gen {
 	return New256pp()
 }
@@ -42,6 +42,8 @@ func (rng *Gen) ManualSeed(seed uint64) {
 	alternateSeed(rng.getState(), seed)
 }
 
+// Attempts to seed state with the cryptographic source of the OS;
+// falls back to a SplitMix64 implementation if that fails
 func seed(state []uint64) {
 	const bytesInUint64 = 8
 	var randBytes = make([]byte, len(state)*bytesInUint64)

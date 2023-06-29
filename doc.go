@@ -19,7 +19,7 @@ is handled: randshiro automatically seeds each *Gen on creation using crypto/ran
 with the ability to fall back to a SplitMix64 implementation if that fails.
 The internally-used generators themselves are also not accesible by end-users.
 The user instead calls a factory function that returns a *Gen,
-which internally manages some backing generator.
+which internally manages one of the backing generators.
 That being said, if you currently use math/rand and your code only calls Intn(), Float32(),
 and/or Float64(), the only change you'll need to make is replacing your math/rand instantiations
 with one of the randshiro factory functions.
@@ -55,12 +55,11 @@ If a *Gen needs to be manually seeded, there is a ManualSeed()
 
 Unpredictability can only be restored by re-initializing the generator with another call to a factory function.
 A dedicated Reseed() method is not provided, since I believe that would make manually seeding too accessible,
-and you shouldn't be manually seeding these generators unless you know for a fact that you need to.
+and you shouldn't be manually seeding these generators unless you are absolutely certain that you need to.
 Since backing generator instances live behind an interface, it is not required that the factory function used
 to re-seed is the same that was originally used for that *Gen.
 
-Methods belonging to Gen do no verification of the variables passed into them;
-passing negative numbers or calling methods with nil *Gen instances is undefined behavior.
+Methods belonging to Gen do no verification of the variables passed into them.
 
 # Performance
 
@@ -80,63 +79,71 @@ backwards compatable value streams. Replacing those methods is where most of the
 The method this package uses for bounding integers is Daniel Lemire's nearly divisionless method:
 https://arxiv.org/abs/1805.10941.
 
-On my machine (AMD R7 2700 at 4.05 Ghz with 3200MHz memory on Go 1.20.4),
-averaged across a few benchmark runs:
+On my machine (AMD R7 2700 at 4.05 Ghz with 3200MHz memory on Go 1.20.5):
 
 	Xoroshiro128++
-		New: ~220 ns
+		New: ~225 ns
 		Uint64: ~2.7 ns
-		Intn/Uint64n: ~3.1 ns
-		Float64/Float32: ~2.7 ns
+		Intn/Uint64n: ~3.2 ns
+		Float64/Float32: ~2.8 ns
+		FastFloat32: ~3.1ns (~1.55 ns per float32)
 	Xoshiro256++ (randshiro default)
-		New: ~240 ns
+		New: ~250 ns
 		Uint64: ~3.1 ns
 		Intn/Uint64n: ~3.8 ns
 		Float64/Float32: ~3.1 ns
-		Intn_WorstCase: ~8.1 ns
-		Normal: ~36 ns (~18 ns per float64)
+		FastFloat32: ~3.8ns (~1.9 ns per float32)
+		IntnWorstCase: ~8.2 ns
+		Normal: ~32 ns (~16 ns per float64)
 		Exponential: ~15 ns
 	Xoshiro512++
 		New: ~300 ns
 		Uint64: ~4.2 ns
 		Intn/Uint64n: ~5.3 ns
 		Float64/Float32: ~4.2 ns
+		FastFloat32: ~4.9ns (~2.45 ns per float32)
 	math/rand
-		New: ~8070 ns (A benchmark I added, works the same way as randshiros New())
+		New: ~8100 ns
 		Uint64: ~4.2 ns
-		Intn/Int31n: ~12 ns
-		Int63n: ~20 ns
-		Float64: ~4.4 ns
-		Float32: ~4.8 ns
-		Normal: ~6.7 ns
+		Uint64Parallel: ~90ns (with 2 goroutines)
+		Intn: ~9.6 ns
+		Float64: ~4.3 ns
+		Float32: ~4.9 ns
+		Normal: ~6.6 ns
 		Exponential: ~6 ns
 
-All benchmarks for math/rand are for local instances. Using the global instance
-may (https://github.com/golang/go/commit/0b9974d3f09fe3132b4bc4aef67b839e3f84a8c8)
-significantly increase all of these values, with the exception of the New benchmark.
+All benchmarks for math/rand (with the exception of Uint64Parallel) are for local instances.
+Using the global instance in parallel goroutines will absolutely decimate performance. If you're
+currently doing so, moving to randshiro will likely result in orders of magnitude more performance.
 
 Float64() and Float32() are both extremely fast due to being just a shift and multiplication,
 and both are capable of generating all unique real numbers their type can accurately represent
-in the interval [0.0, 1.0).
+in the interval [0.0, 1.0). That is, multiplying their output by 2^53 (float64) or 2^24 (float32)
+will restore the exact ouput of the generator before it was converted to a float.
+This is in contrast to the floating-point methods from math/rand,
+whose outputs values are known to be far denser towards 0.
+If you need to batch-generate float32s, FastFloat32() provides two float32s for a little more
+than the cost of one Float32() call. Since the backing generators all output 64 bits and we only need
+24 bits to create a float32 value, one call to the backing generator is used to create two float32s.
 Don't retrieve float32s by calling Float64() and casting the result to float32,
 performance will be exactly the same but some values will be unreachable due to how
 float64s are rounded when casting to float32.
-If you need float64s use Float64(); if you need float32s use Float32().
+If you need float64s use Float64(); if you need float32s use Float32()/FastFloat32().
 Explanantion of method used can be found at:
 https://lemire.me/blog/2017/02/28/how-many-floating-point-numbers-are-in-the-interval-01/
 
-Intn_WorstCase calls it's Intn() with math.IntMax as the bound (and Intn() just wraps Uint64n()).
+IntnWorstCase calls it's Intn() with math.IntMax as the bound (and Intn() just wraps Uint64n()).
 Intn()/Uint64n() execution time should never exceed this time for *Gen instances backed by Xoshiro256++,
-but should be much closer to that of the 256ppIntn benchmark (bound of 65535) for reasonable bounds.
+but should be much closer to that of the 256ppIntn benchmark (bound of 1,000,000) for reasonable bounds.
 Generally speaking, Intn()/Uint64n() excecution time increases the closer the bound is to math.IntMax.
 If you need a bound that happens to be a power of two prefer using Uint64bits().
 
-A Normal() is provided for generating normally distributed float64s.
+Normal() is provided for generating normally distributed float64s.
 It uses the Marsaglia polar method (https://en.wikipedia.org/wiki/Marsaglia_polar_method)
 and returns pairs of independent float64s. NormalDist() can be used to adjust the mean and stddev
 of the returned float64s.
 
-A Exponential() is provided for generating exponentially distributed float64s.
+Exponential() is provided for generating exponentially distributed float64s.
 It uses inverse transform sampling to generate its output:
 https://en.wikipedia.org/wiki/Exponential_distribution#Random_variate_generation.
 
