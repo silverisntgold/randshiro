@@ -3,7 +3,6 @@ package randshiro
 import (
 	"math"
 	"math/rand"
-	"sync"
 	"testing"
 	"time"
 )
@@ -11,19 +10,13 @@ import (
 const bound = 1_000_000
 
 func BenchmarkMathRandUint64Parallel(b *testing.B) {
-	const goroutines = 2
-	var wg sync.WaitGroup
-	wg.Add(goroutines)
+	b.SetParallelism(2)
 	b.ResetTimer()
-	for i := 0; i < goroutines; i++ {
-		go func() {
-			defer wg.Done()
-			for j := 0; j < b.N; j++ {
-				rand.Uint64()
-			}
-		}()
-	}
-	wg.Wait()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			rand.Uint64()
+		}
+	})
 }
 
 func BenchmarkMathRandNew(b *testing.B) {

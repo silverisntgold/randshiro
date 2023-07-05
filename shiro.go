@@ -1,9 +1,8 @@
 package randshiro
 
 import (
-	"crypto/rand"
+	crand "crypto/rand"
 	"encoding/binary"
-	"time"
 	"unsafe"
 )
 
@@ -36,8 +35,7 @@ func New() *Gen {
 
 // Manually seeds the backing generator of the calling Gen instance
 //
-// Unless you are absolutely certain that you need to
-// manually seed a Gen instance, you don't
+// Unless you are absolutely certain that you need to use this, you don't
 func (rng *Gen) ManualSeed(seed uint64) {
 	alternateSeed(rng.getState(), seed)
 }
@@ -47,17 +45,19 @@ func (rng *Gen) ManualSeed(seed uint64) {
 func seed(state []uint64) {
 	const bytesInUint64 = 8
 	var randBytes = make([]byte, len(state)*bytesInUint64)
-	if _, err := rand.Read(randBytes); err == nil {
+	if _, err := crand.Read(randBytes); err == nil {
 		// Mapping sequences of eight bytes from randBytes to unique indexs of state
 		for i := range state {
-			var start = i * bytesInUint64
-			var end = start + bytesInUint64
+			var begin = i * bytesInUint64
+			var end = begin + bytesInUint64
 			// LittleEndian was chosen arbitrarily
-			state[i] = binary.LittleEndian.Uint64(randBytes[start:end])
+			state[i] = binary.LittleEndian.Uint64(randBytes[begin:end])
 		}
 	} else {
-		var randSeed = uint64(time.Now().UnixMicro()) ^
-			uint64(uintptr(unsafe.Pointer(&randBytes[0])))
+		// Using the address of state[0] because state's underlying
+		// array should always be on the heap and thus
+		// it's address should be unique for each instance
+		var randSeed = uint64(uintptr(unsafe.Pointer(&state[0])))
 		alternateSeed(state, randSeed)
 	}
 }

@@ -94,10 +94,12 @@ func (rng *Gen) Normal() (float64, float64) {
 	const shiftValues = 1 << float64Bits
 
 	// It's a bit of a mess to have this all manually inlined,
-	// but doing so saves ~1ns of runtime
+	// but doing so saves ~1ns of runtime because go
+	// REFUSES TO INLINE ANYTHING MORE COMPLICATED THAN
+	// A FEW MACHINE INSTRUCTIONS WHYYYYYYYYY!!!!
 outer_loop:
 
-	// For generating a float64 in the interval (-1.0, 1.0), we roll
+	// When generating a float64 in the interval (-1.0, 1.0), we roll
 	// a random number in the interval [0, 2^54), discard rolls of zero,
 	// and subtract 2^53 (we cast to int64 because we need negatives).
 	// This gives us an integer in the interval (-2^53, 2^53),
