@@ -14,7 +14,7 @@ func (rng *Gen) Uint64() uint64 {
 // Returns a uint64 in the interval [0, 2^bitcount)
 //
 // Makes no range checks on bitcount
-func (rng *Gen) Uint64bits(bitcount int) uint64 {
+func (rng *Gen) Uint64bits(bitcount uint) uint64 {
 	const bitsInUint64 = 64
 	return rng.next() >> (bitsInUint64 - bitcount)
 }
@@ -57,7 +57,7 @@ func (rng *Gen) Bool() bool {
 // Returns a uniformly distributed float64 in the interval [0.0, 1.0)
 //
 // Don't cast the float64s produced by this function to float32:
-// use Float32() or FastFloat32() instead
+// use Float32() or FastFloat32()
 func (rng *Gen) Float64() float64 {
 	return float64(rng.Uint64bits(float64Bits)) / float64Denom
 }
@@ -65,7 +65,7 @@ func (rng *Gen) Float64() float64 {
 // Returns a uniformly distributed float32 in the interval [0.0, 1.0)
 //
 // Don't cast the float32s produced by this function to float64:
-// use Float64() instead
+// use Float64()
 func (rng *Gen) Float32() float32 {
 	return float32(rng.Uint64bits(float32Bits)) / float32Denom
 }
@@ -73,7 +73,7 @@ func (rng *Gen) Float32() float32 {
 // Returns two independent and uniformly distributed float32s in the interval [0.0, 1.0)
 //
 // Don't cast the float32s produced by this function to float64:
-// use Float64() instead
+// use Float64()
 func (rng *Gen) FastFloat32() (float32, float32) {
 	var (
 		random48Bits = rng.Uint64bits(float32Bits * 2)
@@ -94,9 +94,9 @@ func (rng *Gen) Normal() (float64, float64) {
 	const shiftValues = 1 << float64Bits
 
 	// It's a bit of a mess to have this all manually inlined,
-	// but doing so saves ~1ns of runtime because go
+	// but doing so saves some runtime because go
 	// REFUSES TO INLINE ANYTHING MORE COMPLICATED THAN
-	// A FEW MACHINE INSTRUCTIONS WHYYYYYYYYY!!!!
+	// A FEW SIMPLE MACHINE INSTRUCTIONS WHYYYYYYYYY!!!!
 outer_loop:
 
 	// When generating a float64 in the interval (-1.0, 1.0), we roll
@@ -167,7 +167,7 @@ func (rng *Gen) Perm(n int) []int {
 // is a function belonging to the randshiro package
 func (rng *Gen) Shuffle() {}
 
-// Performs a Fisher-Yates shuffle on contents of slice
+// Performs a Fisher-Yates shuffle on the contents of slice
 //
 // If len(slice) > 1 and rng == nil then
 // Shuffle() will instantiate rng with New512pp()

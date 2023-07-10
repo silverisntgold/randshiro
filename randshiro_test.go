@@ -10,8 +10,6 @@ import (
 const bound = 1_000_000
 
 func BenchmarkMathRandUint64Parallel(b *testing.B) {
-	b.SetParallelism(2)
-	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			rand.Uint64()

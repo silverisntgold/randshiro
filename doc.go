@@ -14,7 +14,7 @@ https://vigna.di.unimi.it/papers.php#BlVSLPNG
 # Explanation
 
 This implementation provides an API somewhat similar to that of the math/rand package,
-but it is not a drop-in replacement. This is primarily a byproduct of how seeding/creation
+but it is not a drop-in replacement. This is largely a byproduct of how seeding/creation
 is handled: randshiro automatically seeds each *Gen on creation using crypto/rand,
 with the ability to fall back to a SplitMix64 implementation if that fails.
 The internally-used generators themselves are also not accesible by end-users.
@@ -35,17 +35,13 @@ But using randshiro:
 	var rng256pp   = randshiro.New256pp()
 	var rng512pp   = randshiro.New512pp()
 
-New() is a convenience wrapper for New256pp(); they are equal in all ways.
+New() is a convenience wrapper for New256pp().
 
-Unlike math/rand, randshiro does not provide a global generator instance,
-and it lacks a threadsafe variant.
-I believe that a large part of the reason math/rand includes these is the high cost
-of creating and maintaining instances. Since randshiro generators are cheap to
-create and maintain it is entirely reasonable to create a unique generator
-for each function or goroutine that needs one. Of course if your program is serial
-and you want to create a single randshiro *Gen and pass it to functions that need it
-(or, if you're feeling adventurous, put it in global scope),
-there's nothing stopping you from doing so.
+Unlike math/rand, randshiro does not provide a global generator instance.
+The only reason I can think of for math/rand having this is the high cost
+of creating and maintaining instances. Since randshiro generators are very cheap to
+create and maintain it is entirely reasonable, and even recommended, to create a unique
+Gen instance for each function or goroutine that needs one.
 
 If a *Gen needs to be manually seeded, there is a ManualSeed()
 
@@ -71,8 +67,7 @@ At time of writing math/rand uses an additive lagged fibonacci generator
 This means that for each math/rand instance an array of 607 int64 values (4856 bytes)
 needs to be seeded and maintained.
 Xoroshiro128++, Xoshiro256++, and Xoshiro512++ only use 16, 32, and 64 bytes, respectively.
-Not only are they cheap to keep around in memory, they are [relatively] computationally
-cheap to properly seed.
+Not only are they cheap to keep in memory, they are computationally cheap to properly seed.
 
 The math/rand package also uses an old method for bounding integers/floats to maintain
 backwards compatable value streams. Replacing those methods is where most of the speed improvements come from.
@@ -114,21 +109,18 @@ On my machine (AMD R7 2700 at 4.05 Ghz with 3200MHz memory on Go 1.20.5):
 
 All benchmarks for math/rand (with the exception of Uint64Parallel) are for local instances.
 Using the global instance in parallel goroutines will absolutely decimate performance. If you're
-currently doing so, moving to randshiro will likely result in orders of magnitude more performance.
+currently doing so, moving to randshiro will likely result in orders of magnitude better performance.
 
 Float64() and Float32() are both extremely fast due to being just a shift and multiplication,
-and both are capable of generating all unique real numbers their type can accurately represent
-in the interval [0.0, 1.0). That is, multiplying their output by 2^53 (float64) or 2^24 (float32)
+and both are capable of uniformly generating all unique real numbers their type can accurately represent
+in the interval [0.0, 1.0). That is, multiplying their output by 2^53 for float64 or 2^24 for float32
 will restore the exact ouput of the generator before it was converted to a float.
 This is in contrast to the floating-point methods from math/rand,
-whose outputs values are known to be far denser towards 0.
+whose output values are known to be far denser towards 0.
 If you need to batch-generate float32s, FastFloat32() provides two float32s for a little more
-than the cost of one Float32() call. Since the backing generators all output 64 bits and we only need
-24 bits to create a float32 value, one call to the backing generator is used to create two float32s.
-Don't retrieve float32s by calling Float64() and casting the result to float32,
-performance will be exactly the same but some values will be unreachable due to how
-float64s are rounded when casting to float32.
-If you need float64s use Float64(); if you need float32s use Float32()/FastFloat32().
+than the cost of one Float32() call.
+There is no speed difference when comparing Float64() vs. Float32();
+if you need float64s use Float64() and if you need float32s use Float32()/FastFloat32().
 Explanantion of method used can be found at:
 https://lemire.me/blog/2017/02/28/how-many-floating-point-numbers-are-in-the-interval-01/
 
@@ -151,11 +143,10 @@ Other members of the Xoroshiro/Xoshiro PRNG family (+ and ** variants) were not 
 in this package because testing showed near zero performance benefit for doing so.
 In C/C++ they make more of a difference since a 0.14 ns jump is relatively big when your
 initial time is already low (0.75 ns -> 0.61 ns for 256++ -> 256+, from the PRNG shootout).
-But in Go much of the execution time is runtime overhead that can't be avoided,
-so the jump is less meaningful. The jump is also smaller:
-when testing the 256+ variant I was only seeing around 0.08 ns faster test results vs
-the 256++ counterpart (~3.8 ns -> ~3.72 ns for Intn()).
-No Xoroshiro1024 variant was included because there is no use for them in this package.
+But in this Go package much of the execution time is runtime overhead that can't be avoided,
+so the jump is less meaningful. The jump is also smaller: when testing the 256+ variant
+I was only seeing ~0.08 ns faster test results vs 256++ (~3.8 ns -> ~3.72 ns for Intn()).
+No Xoroshiro1024 variants were included because there is no use for them in this package.
 
 # Extra
 
