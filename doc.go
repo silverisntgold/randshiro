@@ -17,7 +17,7 @@ This implementation provides an API somewhat similar to that of the math/rand pa
 but it is not a drop-in replacement. This is largely a byproduct of how seeding/creation
 is handled: randshiro automatically seeds each *Gen on creation using crypto/rand,
 with the ability to fall back to a SplitMix64 implementation if that fails.
-The internally-used generators themselves are also not accesible by end-users.
+The internally-used generators themselves are also not accessible by end-users.
 The user instead calls a factory function that returns a *Gen,
 which internally manages one of the backing generators.
 That being said, if you currently use math/rand and your code only calls Intn(), Float32(),
@@ -62,7 +62,7 @@ Methods belonging to Gen do no verification of the variables passed into them.
 The main driving factor behind this implementation was the relatively poor performance/memory
 utilization of math/rand.
 
-At time of writing math/rand uses an additive lagged fibonacci generator
+At time of writing math/rand uses an additive lagged Fibonacci generator
 (https://en.wikipedia.org/wiki/Lagged_Fibonacci_generator) with a length of 607 and a tap of 273.
 This means that for each math/rand instance an array of 607 int64 values (4856 bytes)
 needs to be seeded and maintained.
@@ -70,11 +70,11 @@ Xoroshiro128++, Xoshiro256++, and Xoshiro512++ only use 16, 32, and 64 bytes, re
 Not only are they cheap to keep in memory, they are computationally cheap to properly seed.
 
 The math/rand package also uses an old method for bounding integers/floats to maintain
-backwards compatable value streams. Replacing those methods is where most of the speed improvements come from.
+backwards compatible value streams. Replacing those methods is where most of the speed improvements come from.
 The method this package uses for bounding integers is Daniel Lemire's nearly divisionless method:
 https://arxiv.org/abs/1805.10941.
 
-On my machine (AMD R7 2700 at 4.05 Ghz with 3200MHz memory on Go 1.20.5):
+On my machine (AMD R7 2700 at 4.05 GHz with 3200MHz memory on Go 1.20.5):
 
 	Xoroshiro128++
 		New: ~225 ns
@@ -100,7 +100,7 @@ On my machine (AMD R7 2700 at 4.05 Ghz with 3200MHz memory on Go 1.20.5):
 	math/rand
 		New: ~8100 ns
 		Uint64: ~4.2 ns
-		Uint64Parallel: ~90ns (with 2 goroutines)
+		Uint64Parallel: ~90ns
 		Intn: ~9.6 ns
 		Float64: ~4.3 ns
 		Float32: ~4.9 ns
@@ -114,14 +114,14 @@ currently doing so, moving to randshiro will likely result in orders of magnitud
 Float64() and Float32() are both extremely fast due to being just a shift and multiplication,
 and both are capable of uniformly generating all unique real numbers their type can accurately represent
 in the interval [0.0, 1.0). That is, multiplying their output by 2^53 for float64 or 2^24 for float32
-will restore the exact ouput of the generator before it was converted to a float.
+will restore the exact output of the generator before it was converted to a float.
 This is in contrast to the floating-point methods from math/rand,
 whose output values are known to be far denser towards 0.
 If you need to batch-generate float32s, FastFloat32() provides two float32s for a little more
 than the cost of one Float32() call.
 There is no speed difference when comparing Float64() vs. Float32();
 if you need float64s use Float64() and if you need float32s use Float32()/FastFloat32().
-Explanantion of method used can be found at:
+Explanation of the method used can be found at:
 https://lemire.me/blog/2017/02/28/how-many-floating-point-numbers-are-in-the-interval-01/
 
 IntnWorstCase calls it's Intn() with math.IntMax as the bound (and Intn() just wraps Uint64n()).
