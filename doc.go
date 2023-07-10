@@ -127,7 +127,7 @@ https://lemire.me/blog/2017/02/28/how-many-floating-point-numbers-are-in-the-int
 IntnWorstCase calls it's Intn() with math.IntMax as the bound (and Intn() just wraps Uint64n()).
 Intn()/Uint64n() execution time should never exceed this time for *Gen instances backed by Xoshiro256++,
 but should be much closer to that of the 256ppIntn benchmark (bound of 1,000,000) for reasonable bounds.
-Generally speaking, Intn()/Uint64n() excecution time increases the closer the bound is to math.IntMax.
+Generally speaking, Intn()/Uint64n() execution time increases the closer the bound is to math.IntMax.
 If you need a bound that happens to be a power of two prefer using Uint64bits().
 
 Normal() is provided for generating normally distributed float64s.
