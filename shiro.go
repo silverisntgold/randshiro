@@ -14,19 +14,17 @@ const (
 )
 
 type randomBitGenerator interface {
-	getState() []uint64
 	next() uint64
+	state() []uint64
 }
 
-// Instances are not threadsafe
+// Instances are not threadsafe and they are not cryptographically secure
 //
 // It is recommended that each goroutine needing a source of random values
 // should create and own a unique Gen instance
-type Gen struct {
-	randomBitGenerator
-}
+type Gen struct{ randomBitGenerator }
 
-// Creates and cryptographically seeds a *Gen with backing Xoshiro256++ instance
+// Returns a seeded *Gen with backing Xoshiro256++ instance
 //
 // Equivalent to calling New256pp()
 func New() *Gen {
@@ -37,7 +35,7 @@ func New() *Gen {
 //
 // Unless you are absolutely certain that you need to use this, you don't
 func (rng *Gen) ManualSeed(seed uint64) {
-	alternateSeed(rng.getState(), seed)
+	alternateSeed(rng.state(), seed)
 }
 
 // Attempts to seed state with the cryptographic source of the OS;
@@ -55,7 +53,7 @@ func seed(state []uint64) {
 		}
 	} else {
 		// Using the address of state[0] because state's underlying
-		// array should always be on the heap and thus
+		// array should always be on the heap so
 		// it's address should be unique for each instance
 		var randSeed = uint64(uintptr(unsafe.Pointer(&state[0])))
 		alternateSeed(state, randSeed)

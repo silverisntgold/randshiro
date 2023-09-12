@@ -11,12 +11,21 @@ https://prng.di.unimi.it/
 Their paper on this family of PRNGs can be found here:
 https://vigna.di.unimi.it/papers.php#BlVSLPNG
 
+Xoroshiro128++: https://prng.di.unimi.it/xoroshiro128plusplus.c
+
+Xoshiro256++: https://prng.di.unimi.it/xoshiro256plusplus.c
+
+Xoshiro512++: https://prng.di.unimi.it/xoshiro512plusplus.c
+
 # Explanation
 
-This implementation provides an API somewhat similar to that of the math/rand package,
-but it is not a drop-in replacement. This is largely a byproduct of how seeding/creation
+This implementation provides an API similar to that of the math/rand package,
+but it is not a drop-in replacement. This is partially a byproduct of how seeding/creation
 is handled: randshiro automatically seeds each *Gen on creation using crypto/rand,
 with the ability to fall back to a SplitMix64 implementation if that fails.
+Although the generators are cryptographically seeded, they do not produce
+cryptographically secure bitstreams, and should never be used as a substitue for
+crypto/rand.
 The internally-used generators themselves are also not accessible by end-users.
 The user instead calls a factory function that returns a *Gen,
 which internally manages one of the backing generators.

@@ -47,6 +47,13 @@ func (rng *Gen) IntRange(lowerBound, upperBound int) int {
 	return rng.Intn(upperBound-lowerBound) + lowerBound
 }
 
+// Returns a bool with (n / m) percent odds of being true
+//
+// Makes no range checks on n/m
+func (rng *Gen) Odds(n, m uint64) bool {
+	return rng.Uint64n(m) < n
+}
+
 // Returns a bool in the interval [false, true]
 //
 // xD
@@ -79,8 +86,8 @@ func (rng *Gen) FastFloat32() (float32, float32) {
 		random48Bits = rng.Uint64bits(float32Bits * 2)
 		bottom24Bits = random48Bits & (1<<float32Bits - 1)
 		upper24Bits  = random48Bits >> float32Bits
-		float1       = float32(bottom24Bits) / float32Denom
-		float2       = float32(upper24Bits) / float32Denom
+		float2       = float32(bottom24Bits) / float32Denom
+		float1       = float32(upper24Bits) / float32Denom
 	)
 	return float1, float2
 }
@@ -145,8 +152,13 @@ func (rng *Gen) NormalDist(mean, stddev float64) (float64, float64) {
 //
 // Lambda can be adjusted with: Exponential() / lambda
 func (rng *Gen) Exponential() float64 {
+	// Generated with interval of [0, 2^53)
+	var temp = rng.Uint64bits(float64Bits)
+	// Changed to interval of (0, 2^53]
+	temp++
 	// Uniformly distributed float64 in the interval (0.0, 1.0]
-	var float = float64(rng.Uint64bits(float64Bits)+1) / float64Denom
+	var float = float64(temp) / float64Denom
+	// Random variate generation (see docs for link)
 	return -math.Log(float)
 }
 

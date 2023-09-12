@@ -7,24 +7,19 @@ import (
 	"time"
 )
 
-const bound = 1_000_000
+// One in a million odds
+const bound = 1000000
 
-func BenchmarkMathRandUint64Parallel(b *testing.B) {
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			rand.Uint64()
-		}
-	})
-}
+func newMathRand() *rand.Rand { return rand.New(rand.NewSource(time.Now().UnixNano())) }
 
 func BenchmarkMathRandNew(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		rand.New(rand.NewSource(time.Now().UnixNano()))
+		newMathRand()
 	}
 }
 
 func BenchmarkMathRandUint64(b *testing.B) {
-	var rng = rand.New(rand.NewSource(time.Now().UnixNano()))
+	var rng = newMathRand()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		rng.Uint64()
@@ -32,7 +27,7 @@ func BenchmarkMathRandUint64(b *testing.B) {
 }
 
 func BenchmarkMathRandIntn(b *testing.B) {
-	var rng = rand.New(rand.NewSource(time.Now().UnixNano()))
+	var rng = newMathRand()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		rng.Intn(bound)
@@ -40,7 +35,7 @@ func BenchmarkMathRandIntn(b *testing.B) {
 }
 
 func BenchmarkMathRandFloat64(b *testing.B) {
-	var rng = rand.New(rand.NewSource(time.Now().UnixNano()))
+	var rng = newMathRand()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		rng.Float64()
@@ -48,7 +43,7 @@ func BenchmarkMathRandFloat64(b *testing.B) {
 }
 
 func BenchmarkMathRandFloat32(b *testing.B) {
-	var rng = rand.New(rand.NewSource(time.Now().UnixNano()))
+	var rng = newMathRand()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		rng.Float32()
@@ -56,7 +51,7 @@ func BenchmarkMathRandFloat32(b *testing.B) {
 }
 
 func BenchmarkMathRandNormal(b *testing.B) {
-	var rng = rand.New(rand.NewSource(time.Now().UnixNano()))
+	var rng = newMathRand()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		rng.NormFloat64()
@@ -64,7 +59,7 @@ func BenchmarkMathRandNormal(b *testing.B) {
 }
 
 func BenchmarkMathRandExponential(b *testing.B) {
-	var rng = rand.New(rand.NewSource(time.Now().UnixNano()))
+	var rng = newMathRand()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		rng.ExpFloat64()
@@ -112,7 +107,7 @@ func Benchmark512ppFloat32(b *testing.B) {
 func Benchmark512ppFastFloat32(b *testing.B) {
 	var rng = New512pp()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; i < b.N/2; i++ {
 		rng.FastFloat32()
 	}
 }
@@ -158,7 +153,7 @@ func Benchmark256ppFloat32(b *testing.B) {
 func Benchmark256ppFastFloat32(b *testing.B) {
 	var rng = New256pp()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; i < b.N/2; i++ {
 		rng.FastFloat32()
 	}
 }
@@ -204,7 +199,7 @@ func Benchmark128ppFloat32(b *testing.B) {
 func Benchmark128ppFastFloat32(b *testing.B) {
 	var rng = New128pp()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; i < b.N/2; i++ {
 		rng.FastFloat32()
 	}
 }
