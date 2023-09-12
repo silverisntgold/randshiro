@@ -207,7 +207,7 @@ func Benchmark128ppFastFloat32(b *testing.B) {
 func BenchmarkNormal(b *testing.B) {
 	var rng = New()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := 0; i < b.N/2; i++ {
 		rng.Normal()
 	}
 }

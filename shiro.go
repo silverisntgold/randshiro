@@ -20,8 +20,8 @@ type randomBitGenerator interface {
 
 // Instances are not threadsafe and they are not cryptographically secure
 //
-// It is recommended that each goroutine needing a source of random values
-// should create and own a unique Gen instance
+// It is highly recommended that each goroutine needing a source of
+// random values should create and own a unique Gen instance
 type Gen struct{ randomBitGenerator }
 
 // Returns a seeded *Gen with backing Xoshiro256++ instance

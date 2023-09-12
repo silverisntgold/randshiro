@@ -21,7 +21,7 @@ func (rng *Gen) Uint64bits(bitcount uint) uint64 {
 
 // Returns a uint64 in the interval [0, bound)
 //
-// Makes no range checks on bound
+// If bound happens to be a power of two, prefer using Uint64bits()
 func (rng *Gen) Uint64n(bound uint64) uint64 {
 	var high, low = bits.Mul64(rng.next(), bound)
 	if low < bound {
@@ -47,16 +47,12 @@ func (rng *Gen) IntRange(lowerBound, upperBound int) int {
 	return rng.Intn(upperBound-lowerBound) + lowerBound
 }
 
-// Returns a bool with (n / m) percent odds of being true
-//
-// Makes no range checks on n/m
+// Returns a bool with n in m odds of being true
 func (rng *Gen) Odds(n, m uint64) bool {
 	return rng.Uint64n(m) < n
 }
 
-// Returns a bool in the interval [false, true]
-//
-// xD
+// Returns a bool with 50% odds of being true
 func (rng *Gen) Bool() bool {
 	return rng.Uint64bits(1) == 1
 }
@@ -100,18 +96,15 @@ func (rng *Gen) Normal() (float64, float64) {
 	const bitCount = float64Bits + 1
 	const shiftValues = 1 << float64Bits
 
-	// It's a bit of a mess to have this all manually inlined,
-	// but doing so saves some runtime because go
-	// REFUSES TO INLINE ANYTHING MORE COMPLICATED THAN
-	// A FEW SIMPLE MACHINE INSTRUCTIONS WHYYYYYYYYY!!!!
+	// Manually inlined because it saves some runtime
 outer_loop:
 
-	// When generating a float64 in the interval (-1.0, 1.0), we roll
+	// To generate a float64 in the interval (-1.0, 1.0), we roll
 	// a random number in the interval [0, 2^54), discard rolls of zero,
 	// and subtract 2^53 (we cast to int64 because we need negatives).
 	// This gives us an integer in the interval (-2^53, 2^53),
 	// which then maps to a float64 in the interval (-1.0, 1.0) when we
-	// do our casting and division magic.
+	// do our casting and division magic trick.
 inner_loop_1:
 	var temp = int64(rng.Uint64bits(bitCount))
 	if temp == 0 {
@@ -129,7 +122,7 @@ inner_loop_2:
 	var v = float64(temp) / float64Denom
 
 	var s = u*u + v*v
-	if s > 1 || s == 0 {
+	if s >= 1 || s == 0 {
 		goto outer_loop
 	}
 	s = math.Sqrt(-2 * math.Log(s) / s)
